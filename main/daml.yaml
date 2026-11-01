@@ -1,0 +1,7 @@
+sdk-version: 3.6.4
+name: loan-practice-main
+source: daml
+version: 0.0.2
+dependencies:
+  - daml-prim
+  - daml-stdlib

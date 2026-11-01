@@ -1,0 +1,64 @@
+module Test where
+
+import Main
+import Daml.Script
+
+proposeAcceptTest : Script ()
+proposeAcceptTest = script do
+  bank     <- allocatePartyByHint (PartyIdHint "Bank")
+  borrower <- allocatePartyByHint (PartyIdHint "Borrower")
+  stranger <- allocatePartyByHint (PartyIdHint "Stranger")
+
+  -- 1. Bank akele Loan nahi bana sakta (borrower ki sign nahi)
+  submitMustFail bank do
+    createCmd Loan with bank, borrower, amount = 1000.0
+
+  -- 2. Bank Proposal bana sakta hai (sirf apni sign)
+  proposal <- submit bank do
+    createCmd LoanProposal with bank, borrower, amount = 1000.0
+
+  -- 3. Bahar ki party Accept nahi kar sakti
+  submitMustFail stranger do
+    exerciseCmd proposal Accept
+
+  -- 4. Bank khud Accept nahi kar sakta (controller borrower hai)
+  submitMustFail bank do
+    exerciseCmd proposal Accept
+
+  -- 5. Borrower Accept karta hai: Proposal archive, Loan bana
+  loan <- submit borrower do
+    exerciseCmd proposal Accept
+
+  -- 6. Purani Proposal dobara Accept nahi ho sakti (archive ho chuki)
+  submitMustFail borrower do
+    exerciseCmd proposal Accept
+
+  -- 7. Loan par GetBalance aur Repay pehle jaise kaam karte hain
+  bal <- submit borrower do
+    exerciseCmd loan GetBalance
+  debug bal
+
+  loan2 <- submit borrower do
+    exerciseCmd loan Repay with paid = 100.0
+
+  bal2 <- submit borrower do
+    exerciseCmd loan2 GetBalance
+  debug bal2
+
+  -- 8. Reject: Proposal archive, koi Loan nahi
+  proposal2 <- submit bank do
+    createCmd LoanProposal with bank, borrower, amount = 500.0
+  submit borrower do
+    exerciseCmd proposal2 Reject
+  submitMustFail borrower do
+    exerciseCmd proposal2 Accept
+
+  -- 9. Withdraw: Bank offer wapas leta hai
+  proposal3 <- submit bank do
+    createCmd LoanProposal with bank, borrower, amount = 300.0
+  submit bank do
+    exerciseCmd proposal3 Withdraw
+  submitMustFail borrower do
+    exerciseCmd proposal3 Accept
+
+  pure ()

@@ -1,0 +1,43 @@
+module Main where
+
+template LoanProposal
+  with
+    bank     : Party
+    borrower : Party
+    amount   : Decimal
+  where
+    signatory bank
+    observer borrower
+    ensure amount > 0.0
+
+    choice Accept : ContractId Loan
+      controller borrower
+      do create Loan with bank, borrower, amount
+
+    choice Reject : ()
+      controller borrower
+      do return ()
+
+    choice Withdraw : ()
+      controller bank
+      do return ()
+
+template Loan
+  with
+    bank     : Party
+    borrower : Party
+    amount   : Decimal
+  where
+    signatory bank, borrower
+    ensure amount > 0.0
+
+    choice Repay : ContractId Loan
+      with paid : Decimal
+      controller borrower
+      do
+        assertMsg "Zyada paisa nahi de sakte" (paid <= amount)
+        create this with amount = amount - paid
+
+    nonconsuming choice GetBalance : Decimal
+      controller borrower
+      do return amount
